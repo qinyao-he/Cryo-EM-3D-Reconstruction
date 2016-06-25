@@ -80,37 +80,21 @@ func = None
 
 
 def build_func():
-    slices = T.cmatrix()
-    S = T.cmatrix()
-    envelope = T.dvector()
-    ctf = T.dmatrix()
-    d = T.cmatrix()
-    logW_S = T.dvector()
-    logW_I = T.dvector()
-    logW_R = T.dvector()
+    envelope = T.fvector()
+    ctf = T.fmatrix()
+    logW_S = T.fvector()
+    logW_I = T.fvector()
+    logW_R = T.fvector()
     div_in = T.dscalar()
     sigma2_coloured = T.dvector()
-
-    N_S = S.shape[0]
-    N_I = ctf.shape[0]
-    N_R = slices.shape[0]
-    N_T = slices.shape[1]
-
-    cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
-    cim = S[:, np.newaxis, :] * d  # s * i * t
-    correlation_I = T.real(cproj[:, np.newaxis, :, :]) * T.real(cim) \
-        + T.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
-    power_I = T.real(cproj[:, np.newaxis, :, :]) ** 2 + T.imag(cproj[:, np.newaxis, :, :]) ** 2  # r * s * i * t
-
-    g_I = envelope * cproj[:, np.newaxis, :, :] - cim  # r * s * i * t
-
-    sigma2_I = T.real(g_I) ** 2 + T.imag(g_I) ** 2  # r * s * i * t
+    correlation_I = T.dtensor4()
+    power_I = T.dtensor4()
+    sigma2_I = T.dtensor4()
+    g_I = T.ctensor4()
 
     tmp = T.sum(sigma2_I / sigma2_coloured, axis=-1)  # r * s * i
 
-    e_I = div_in * tmp + logW_I  # r * s * i
-
-    g_I *= ctf  # r * s * i * t
+    e_I = tmp * div_in + logW_I  # r * s * i
 
     etmp = my_logsumexp_theano(e_I)  # r * s
     e_S = etmp + logW_S  # r * s
@@ -152,8 +136,9 @@ def build_func():
     power = T.dot(phitmp, power_R)
 
     global func
-    func = theano.function(inputs=[slices, S, envelope, ctf, d, logW_S, logW_I, logW_R, div_in, sigma2_coloured],
+    func = theano.function(inputs=[g_I, correlation_I, power_I, sigma2_I, envelope, logW_S, logW_I, logW_R, div_in, sigma2_coloured],
                            outputs=[g, I_tmp, S_tmp, R_tmp, sigma2_est, correlation, power, nttmp, lse_in, phitmp])
+    # func.trust_input = True
 
 
 def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
@@ -221,8 +206,17 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
         assert g.shape[0] == N_R
         assert g.shape[1] == N_T
 
+    cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
+    cim = S[:, np.newaxis, :] * d  # s * i * t
+    correlation_I = np.real(cproj[:, np.newaxis, :, :]) * np.real(cim) \
+                    + np.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
+    power_I = np.real(cproj[:, np.newaxis, :, :]) ** 2 + np.imag(cproj[:, np.newaxis, :, :]) ** 2  # r * s * i * t
+    g_I = cproj[:, np.newaxis, :, :] * envelope - cim  # r * s * i * t
+    g_I *= ctf  # r * s * i * t
+    sigma2_I = np.real(g_I) ** 2 + np.imag(g_I) ** 2  # r * s * i * t
+
     g_tmp, I_tmp, S_tmp, R_tmp, sigma2_est_tmp, correlation_tmp, power_tmp, nttmp, lse_in, phitmp = \
-        func(slices, S, envelope, ctf, d, logW_S, logW_I, logW_R, div_in, sigma2_coloured)
+        func(g_I, correlation_I, power_I, sigma2_I, envelope, logW_S, logW_I, logW_R, div_in, sigma2_coloured)
 
     for r in range(N_R):
         for s in range(N_S):
