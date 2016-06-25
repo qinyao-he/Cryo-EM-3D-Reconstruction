@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import theano
+import theano.tensor as T
 
 
 def my_logsumexp(a):
@@ -13,11 +14,18 @@ def my_logsumexp(a):
 
 def my_logaddexp(a, b):
     tmp = a - b
-    return np.select([a == b, tmp > 0, tmp <= 0], [
-        a + 0.69314718055994529,
-        a + np.log1p(np.exp(-tmp)),
-        b + np.log1p(np.exp(tmp))
-    ], default=tmp)
+    return np.where(tmp > 0, a + np.log1p(np.exp(-tmp)), b + np.log1p(np.exp(tmp)))
+
+
+def my_logsumexp_theano(a):
+    a_max = T.max(a, axis=-1, keepdims=True)
+    a_sum = T.sum(np.exp(a - a_max), axis=-1)
+    return T.max(a, axis=-1) + T.log(a_sum)
+
+
+def my_logaddexp_theano(a, b):
+    tmp = a - b
+    return T.switch(tmp > 0, a + T.log1p(T.exp(-tmp)), b + T.log1p(T.exp(tmp)))
 
 
 def update_workspace(workspace, N_R, N_I, N_S, N_T):
@@ -68,6 +76,86 @@ def update_workspace(workspace, N_R, N_I, N_S, N_T):
     return workspace
 
 
+func = None
+
+
+def build_func():
+    slices = T.cmatrix()
+    S = T.cmatrix()
+    envelope = T.dvector()
+    ctf = T.dmatrix()
+    d = T.cmatrix()
+    logW_S = T.dvector()
+    logW_I = T.dvector()
+    logW_R = T.dvector()
+    div_in = T.dscalar()
+    sigma2_coloured = T.dvector()
+
+    N_S = S.shape[0]
+    N_I = ctf.shape[0]
+    N_R = slices.shape[0]
+    N_T = slices.shape[1]
+
+    cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
+    cim = S[:, np.newaxis, :] * d  # s * i * t
+    correlation_I = T.real(cproj[:, np.newaxis, :, :]) * T.real(cim) \
+        + T.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
+    power_I = T.real(cproj[:, np.newaxis, :, :]) ** 2 + T.imag(cproj[:, np.newaxis, :, :]) ** 2  # r * s * i * t
+
+    g_I = envelope * cproj[:, np.newaxis, :, :] - cim  # r * s * i * t
+
+    sigma2_I = T.real(g_I) ** 2 + T.imag(g_I) ** 2  # r * s * i * t
+
+    tmp = T.sum(sigma2_I / sigma2_coloured, axis=-1)  # r * s * i
+
+    e_I = div_in * tmp + logW_I  # r * s * i
+
+    g_I *= ctf  # r * s * i * t
+
+    etmp = my_logsumexp_theano(e_I)  # r * s
+    e_S = etmp + logW_S  # r * s
+
+    tmp = logW_S + logW_R[:, np.newaxis]  # r * s
+    phitmp = T.exp(e_I - etmp[:, :, np.newaxis])  # r * s * i
+    I_tmp = tmp[:, :, np.newaxis] + e_I
+
+    correlation_S = T.sum(phitmp[:, :, :, np.newaxis] * correlation_I, axis=2)  # r * s * t
+    power_S = T.sum(phitmp[:, :, :, np.newaxis] * power_I, axis=2)  # r * s * t
+    sigma2_S = T.sum(phitmp[:, :, :, np.newaxis] * sigma2_I, axis=2)  # r * s * t
+    g_S = T.sum(phitmp[:, :, :, np.newaxis] * g_I, axis=2)  # r * s * t
+
+    etmp = my_logsumexp_theano(e_S)  # r
+    e_R = etmp + logW_R  # r
+
+    tmp = logW_R  # r
+    phitmp = np.exp(e_S - etmp[:, np.newaxis])  # r * s
+    S_tmp = tmp[:, np.newaxis] + e_S
+    correlation_R = T.sum(phitmp[:, :, np.newaxis] * correlation_S, axis=1)  # r * t
+    power_R = T.sum(phitmp[:, :, np.newaxis] * power_S, axis=1)  # r * t
+    sigma2_R = T.sum(phitmp[:, :, np.newaxis] * sigma2_S, axis=1)  # r * t
+
+    g = T.sum(phitmp[:, :, np.newaxis] * g_S, axis=1)  # r * t
+
+    tmp = -2.0 * div_in
+    nttmp = tmp * envelope / sigma2_coloured
+
+    e = my_logsumexp_theano(e_R)
+    lse_in = -e
+
+    # Noise estimate
+    phitmp = e_R - e
+    R_tmp = phitmp
+    phitmp = T.exp(phitmp)
+
+    sigma2_est = T.dot(phitmp, sigma2_R)
+    correlation = T.dot(phitmp, correlation_R)
+    power = T.dot(phitmp, power_R)
+
+    global func
+    func = theano.function(inputs=[slices, S, envelope, ctf, d, logW_S, logW_I, logW_R, div_in, sigma2_coloured],
+                           outputs=[g, I_tmp, S_tmp, R_tmp, sigma2_est, correlation, power, nttmp, lse_in, phitmp])
+
+
 def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
                 S,  # Shift operators (N_S X N_T)
                 envelope,  # (Experimental) envelope (N_T)
@@ -79,6 +167,10 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
                 sigma2,  # Inlier noise, can be a scalar or an N_T length vector
                 g,  # Where to store gradient output
                 workspace):
+
+    global func
+    if not func:
+        build_func()
 
     N_S = S.shape[0]  # Number of shifts
     assert logW_S.shape[0] == N_S
@@ -114,6 +206,7 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
     if use_whitenoise:
         sigma2_white = sigma2
         div_in = -1.0 / (2.0 * sigma2)
+        sigma2_coloured = np.zeros(N_T) + 1
     else:
         sigma2_coloured = sigma2
         assert sigma2_coloured.shape[0] == N_T
@@ -121,87 +214,31 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
 
     if use_envelope:
         assert envelope.shape[0] == N_T
+    else:
+        envelope = np.zeros(N_T) + 1
 
     if computeGrad:
         assert g.shape[0] == N_R
         assert g.shape[1] == N_T
 
-    cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
-    cim = S[:, np.newaxis, np.newaxis] * d  # s * i * t
-    correlation_I = np.real(cproj[:, np.newaxis, :, :]) * np.real(cim) \
-                    + np.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
-    power_I = np.real(cproj[:, np.newaxis, :, :]) ** 2 + np.imag(cproj[:, np.newaxis, :, :]) ** 2  # r * s * i * t
+    g_tmp, I_tmp, S_tmp, R_tmp, sigma2_est_tmp, correlation_tmp, power_tmp, nttmp, lse_in, phitmp = \
+        func(slices, S, envelope, ctf, d, logW_S, logW_I, logW_R, div_in, sigma2_coloured)
 
-    if use_envelope:
-        g_I = envelope * cproj[:, np.newaxis, :, :] - cim
-    else:
-        g_I = cproj[:, np.newaxis, :, :] - cim  # r * s * i * t
-
-    sigma2_I = np.real(g_I) ** 2 + np.imag(g_I) ** 2  # r * s * i * t
-    if use_whitenoise:
-        tmp = np.sum(sigma2_I, axis=-1)  # r * s * i
-    else:
-        tmp = np.sum(sigma2_I / sigma2_coloured, axis=-1)  # r * s * i
-
-    e_I = div_in * tmp + logW_I  # r * s * i
-
-    if computeGrad:
-        g_I *= ctf  # r * s * i * t
-
-    etmp = my_logsumexp(e_I)  # r * s
-    e_S = etmp + logW_S  # r * s
-
-    tmp = logW_S + logW_R[:, np.newaxis]  # r * s
-    phitmp = np.exp(e_I - etmp[:, :, np.newaxis])  # r * s * i
-    tmp = tmp[:, :, np.newaxis] + e_I
     for r in range(N_R):
         for s in range(N_S):
-            avgphi_I = my_logaddexp(avgphi_I, tmp[r, s])  # i
-    correlation_S = np.sum(phitmp[:, :, :, np.newaxis] * correlation_I, axis=2)  # r * s * t
-    power_S = np.sum(phitmp[:, :, :, np.newaxis] * power_I, axis=2)  # r * s * t
-    sigma2_S = np.sum(phitmp[:, :, :, np.newaxis] * sigma2_I, axis=2)  # r * s * t
-    if computeGrad:
-        g_S = np.sum(phitmp[:, :, :, np.newaxis] * g_I, axis=2)  # r * s * t
+            avgphi_I = my_logaddexp(avgphi_I, I_tmp[r, s])  # i
 
-    etmp = my_logsumexp(e_S)  # r
-    e_R = etmp + logW_R  # r
-
-    tmp = logW_R  # r
-    phitmp = np.exp(e_S - etmp[:, np.newaxis])  # r * s
-    tmp = tmp[:, np.newaxis] + e_S
     for r in range(N_R):
-        avgphi_S = my_logaddexp(avgphi_S, tmp[r])  # s
-    correlation_R = np.sum(phitmp[:, :, np.newaxis] * correlation_S, axis=1)  # r * t
-    power_R = np.sum(phitmp[:, :, np.newaxis] * power_S, axis=1)  # r * t
-    sigma2_R = np.sum(phitmp[:, :, np.newaxis] * sigma2_S, axis=1)  # r * t
+        avgphi_S = my_logaddexp(avgphi_S, S_tmp[r])  # s
+
+    avgphi_R = R_tmp
+
+    sigma2_est += sigma2_est_tmp
+    correlation += correlation_tmp
+    power += power_tmp
 
     if computeGrad:
-        g[:] = np.sum(phitmp[:, :, np.newaxis] * g_S, axis=1)  # r * t
-
-    e = my_logsumexp(e_R)
-    lse_in = -e
-
-    if computeGrad:
-        tmp = -2.0 * div_in
-        if not use_whitenoise:
-            if use_envelope:
-                nttmp = tmp * envelope / sigma2_coloured
-            else:
-                nttmp = tmp / sigma2_coloured
-        else:
-            if use_envelope:
-                nttmp = tmp * envelope
-
-    # Noise estimate
-    phitmp = e_R - e
-    avgphi_R[:] = phitmp
-    phitmp = np.exp(phitmp)
-
-    sigma2_est += np.dot(phitmp, sigma2_R)
-    correlation += np.dot(phitmp, correlation_R)
-    power += np.dot(phitmp, power_R)
-
-    if computeGrad:
+        g[:] = g_tmp
         if use_envelope or not use_whitenoise:
             g *= np.outer(phitmp, nttmp)
         else:
@@ -212,3 +249,7 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
     avgphi_I -= my_logsumexp(avgphi_I)
 
     return lse_in, (avgphi_S[:N_S], avgphi_I[:N_I], avgphi_R[:N_R]), sigma2_est, correlation, power, workspace
+
+
+if __name__ == '__main__':
+    build_func()
