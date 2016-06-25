@@ -12,10 +12,9 @@ pyximport.install(setup_args={"include_dirs": n.get_include()}, reload_support=T
 import objective_kernels
 
 from objectives.likelihood import UnknownRSKernel
-import objective_gpu_kernels
 
 
-class UnknownRSThreadedCPUKernel(UnknownRSKernel):
+class UnknownRSGPUKernel(UnknownRSKernel):
     def __init__(self):
         UnknownRSKernel.__init__(self)
 
@@ -37,7 +36,7 @@ class UnknownRSThreadedCPUKernel(UnknownRSKernel):
         use_numthreads = min(det_numthreads, numthreads)
         print "Detected {0} cores, using {1} threads".format(det_numthreads, use_numthreads)
 
-        if self.threads is None:
+        if self.threads == None:
             self.numthreads = use_numthreads
             self.threads = [Thread(target=self.worker) for i in range(self.numthreads)]
             for th in self.threads:
@@ -119,7 +118,7 @@ class UnknownRSThreadedCPUKernel(UnknownRSKernel):
                 tic = time.time()
                 if len(W_I_sampled) == 1:
                     like[idx], (cphi_S, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
-                        objective_gpu_kernels.doimage_RS(slices_sampled,
+                        objective_kernels.doimage_RS(slices_sampled,
                                                      S_sampled, envelope,
                                                      rotc_sampled.reshape((-1,)), rotd_sampled.reshape((-1,)),
                                                      log_W_S, log_W_R,
@@ -127,7 +126,7 @@ class UnknownRSThreadedCPUKernel(UnknownRSKernel):
                     cphi_I = n.array([0.0])
                 else:
                     like[idx], (cphi_S, cphi_I, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
-                        objective_gpu_kernels.doimage_RIS(slices_sampled,
+                        objective_kernels.doimage_RIS(slices_sampled,
                                                       S_sampled, envelope,
                                                       rotc_sampled, rotd_sampled,
                                                       log_W_S, log_W_I, log_W_R,

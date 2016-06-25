@@ -7,6 +7,9 @@ class Objective():
         self.diagout = None
         self.statout = None
         self.ostream = None
+        self.params = None
+        self.cryodata = None
+        self.minibatch = None
 
     def get_preconditioner(self, precond_type):
         warnings.warn("{0} does not have an implemented preconditioner".format(type(self).__name__))

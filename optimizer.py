@@ -263,6 +263,9 @@ class CryoOptimizer(BackgroundWorker):
         for k, v in res['like_timing'].iteritems():
             stat[prefix + '_like_timing_' + k] = [v]
 
+        for k, v in res['kern_timing'].iteritems():
+            stat[prefix + '_kern_timing_' + k] = [v]
+
         Idxs = batch['img_idxs']
         self.img_likes[Idxs] = res['like']
         like['img_likes'] = self.img_likes

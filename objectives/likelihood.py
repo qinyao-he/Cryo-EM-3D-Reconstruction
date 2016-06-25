@@ -2,13 +2,17 @@ from objective import Objective
 
 import numpy as n
 
-import sys, time
+import sys
+import time
 
 from util import FiniteRunningSum, logsumexp
 
 from cryoio.imagestack import FourierStack
 from cryoio import ctf
-import cryoem, quadrature, density, cryoops
+import cryoem
+import quadrature
+import density
+import cryoops
 
 from symmetry import get_symmetryop
 from geom import gencoords
@@ -18,6 +22,7 @@ from cryoem import getslices
 class UnknownRSLikelihood(Objective):
     def __init__(self):
         Objective.__init__(self, False)
+        self.kernel = None
 
     def setup(self, params, diagout, statout, ostream):
         Objective.setup(self, params, diagout, statout, ostream)
@@ -817,9 +822,9 @@ class UnknownRSKernel:
                W_I_sampled, sampleinfo_I, rotd_sampled, rotc_sampled, \
                W_S_sampled, sampleinfo_S, S_sampled
 
-    def store_results(self, idx, isw, \
-                      cphi_R, sampleinfo_R, \
-                      cphi_I, sampleinfo_I, \
+    def store_results(self, idx, isw,
+                      cphi_R, sampleinfo_R,
+                      cphi_I, sampleinfo_I,
                       cphi_S, sampleinfo_S, res,
                       logspace_phis=False):
         Idx = self.minibatch['img_idxs'][idx]
