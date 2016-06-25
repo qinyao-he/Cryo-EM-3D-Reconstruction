@@ -12,7 +12,6 @@ pyximport.install(setup_args={"include_dirs": n.get_include()}, reload_support=T
 import objective_kernels
 
 from objectives.likelihood import UnknownRSKernel
-import objective_gpu_kernels
 
 
 class UnknownRSThreadedCPUKernel(UnknownRSKernel):
@@ -36,7 +35,13 @@ class UnknownRSThreadedCPUKernel(UnknownRSKernel):
             numthreads = n.inf
         use_numthreads = min(det_numthreads, numthreads)
         print "Detected {0} cores, using {1} threads".format(det_numthreads, use_numthreads)
-        self.numthreads = use_numthreads
+
+        if self.threads == None:
+            self.numthreads = use_numthreads
+            self.threads = [Thread(target=self.worker) for i in range(self.numthreads)]
+            for th in self.threads:
+                th.daemon = True
+                th.start()
 
     def precompute_projections(self, fM):
         if self.using_precomp_slicing:
@@ -47,124 +52,127 @@ class UnknownRSThreadedCPUKernel(UnknownRSKernel):
             # do on-the-fly slicing
             self.precomp_slices = None
 
-    def worker(self, idxs, fM, res, compute_grad):
+    def worker(self):
         g_tmp = None
         lcl_sigma2_est = None
         lcl_correlation = None
         lcl_power = None
         lcl_G = None
         workspace = None
-        sigma2 = self.inlier_sigma2_trunc
-        inlier_const = self.inlier_const - res['totallike_logscale']
+        while True:
+            idxs, fM, res, compute_grad = self.q.get()
 
-        if lcl_sigma2_est is None or lcl_sigma2_est.shape[0] != self.N_T:
-            lcl_sigma2_est = n.zeros(self.N_T, dtype=n.float64)
-        else:
-            lcl_sigma2_est[:] = 0
+            sigma2 = self.inlier_sigma2_trunc
+            inlier_const = self.inlier_const - res['totallike_logscale']
 
-        if lcl_correlation is None or lcl_correlation.shape[0] != self.N_T:
-            lcl_correlation = n.zeros(self.N_T, dtype=n.float64)
-        else:
-            lcl_correlation[:] = 0
-
-        if lcl_power is None or lcl_power.shape[0] != self.N_T:
-            lcl_power = n.zeros(self.N_T, dtype=n.float64)
-        else:
-            lcl_power[:] = 0
-
-        # Result buffers
-        like = res['like']
-        Evar_like = res['Evar_like']
-
-        if compute_grad:
-            if lcl_G is None or lcl_G.shape != self.G.shape:
-                lcl_G = n.zeros_like(self.G)
+            if lcl_sigma2_est is None or lcl_sigma2_est.shape[0] != self.N_T:
+                lcl_sigma2_est = n.zeros(self.N_T, dtype=n.float64)
             else:
-                lcl_G[:] = 0
+                lcl_sigma2_est[:] = 0
 
-        for idx in idxs:
-            tic = time.time()
-            slice_ops, envelope, \
-            W_R_sampled, sampleinfo_R, slices_sampled, slice_inds, \
-            W_I_sampled, sampleinfo_I, rotd_sampled, rotc_sampled, \
-            W_S_sampled, sampleinfo_S, S_sampled = \
-                self.prep_operators(fM, idx, res=res)
+            if lcl_correlation is None or lcl_correlation.shape[0] != self.N_T:
+                lcl_correlation = n.zeros(self.N_T, dtype=n.float64)
+            else:
+                lcl_correlation[:] = 0
 
-            N_slices = slices_sampled.shape[0]
+            if lcl_power is None or lcl_power.shape[0] != self.N_T:
+                lcl_power = n.zeros(self.N_T, dtype=n.float64)
+            else:
+                lcl_power[:] = 0
 
-            log_W_R = n.log(W_R_sampled)
-            log_W_I = n.log(W_I_sampled)
-            log_W_S = n.log(W_S_sampled)
+            # Result buffers
+            like = res['like']
+            Evar_like = res['Evar_like']
 
             if compute_grad:
-                if g_tmp is None or g_tmp.shape[0] < N_slices or g_tmp.shape[1] != self.N_T:
-                    g_tmp = n.empty((N_slices, self.N_T), dtype=self.G_datatype)
+                if lcl_G is None or lcl_G.shape != self.G.shape:
+                    lcl_G = n.zeros_like(self.G)
                 else:
-                    g_tmp[:] = 0.0
-                g = g_tmp[0:N_slices]
-                g[:] = 0
-            else:
-                g = None
-            res['kern_timing']['prep'][idx] = time.time() - tic
+                    lcl_G[:] = 0
 
-            tic = time.time()
-            if len(W_I_sampled) == 1:
-                like[idx], (cphi_S, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
-                    objective_kernels.doimage_RS(slices_sampled,
-                                                 S_sampled, envelope,
-                                                 rotc_sampled.reshape((-1,)), rotd_sampled.reshape((-1,)),
-                                                 log_W_S, log_W_R,
-                                                 sigma2, g, workspace)
-                # print('rs')
-                cphi_I = n.array([0.0])
-            else:
-                like[idx], (cphi_S, cphi_I, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
-                    objective_gpu_kernels.doimage_RIS(slices_sampled,
+            for idx in idxs:
+                tic = time.time()
+                slice_ops, envelope, \
+                W_R_sampled, sampleinfo_R, slices_sampled, slice_inds, \
+                W_I_sampled, sampleinfo_I, rotd_sampled, rotc_sampled, \
+                W_S_sampled, sampleinfo_S, S_sampled = \
+                    self.prep_operators(fM, idx, res=res)
+
+                N_slices = slices_sampled.shape[0]
+
+                log_W_R = n.log(W_R_sampled)
+                log_W_I = n.log(W_I_sampled)
+                log_W_S = n.log(W_S_sampled)
+
+                if compute_grad:
+                    if g_tmp is None or g_tmp.shape[0] < N_slices or g_tmp.shape[1] != self.N_T:
+                        g_tmp = n.empty((N_slices, self.N_T), dtype=self.G_datatype)
+                    else:
+                        g_tmp[:] = 0.0
+                    g = g_tmp[0:N_slices]
+                    g[:] = 0
+                else:
+                    g = None
+                res['kern_timing']['prep'][idx] = time.time() - tic
+
+                tic = time.time()
+                if len(W_I_sampled) == 1:
+                    like[idx], (cphi_S, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
+                        objective_kernels.doimage_RS(slices_sampled,
+                                                     S_sampled, envelope,
+                                                     rotc_sampled.reshape((-1,)), rotd_sampled.reshape((-1,)),
+                                                     log_W_S, log_W_R,
+                                                     sigma2, g, workspace)
+                    cphi_I = n.array([0.0])
+                else:
+                    like[idx], (cphi_S, cphi_I, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
+                        objective_kernels.doimage_RIS(slices_sampled,
                                                       S_sampled, envelope,
                                                       rotc_sampled, rotd_sampled,
                                                       log_W_S, log_W_I, log_W_R,
                                                       sigma2, g, workspace)
-                # print('irs')
-            res['kern_timing']['work'][idx] = time.time() - tic
+                res['kern_timing']['work'][idx] = time.time() - tic
 
-            tic = time.time()
-            # like[idx] is the negative log likelihood of the image
-            like[idx] += self.inlier_like_trunc[idx]
+                tic = time.time()
+                # like[idx] is the negative log likelihood of the image
+                like[idx] += self.inlier_like_trunc[idx]
 
-            # Evar_like[idx] is the expected error
-            Evar_like[idx] = (csigma2_est.sum() + self.imgpower_trunc[idx]) / self.N ** 2
+                # Evar_like[idx] is the expected error
+                Evar_like[idx] = (csigma2_est.sum() + self.imgpower_trunc[idx]) / self.N ** 2
 
-            lcl_sigma2_est += csigma2_est
-            lcl_correlation += ccorrelation
-            lcl_power += cpower
+                lcl_sigma2_est += csigma2_est
+                lcl_correlation += ccorrelation
+                lcl_power += cpower
 
-            like[idx] += inlier_const
+                like[idx] += inlier_const
+
+                if compute_grad:
+                    if self.using_precomp_slicing:
+                        lcl_G[slice_inds] += g
+                    else:
+                        lcl_G += slice_ops.T.dot(g.reshape((-1,))).reshape(lcl_G.shape)
+                res['kern_timing']['proc'][idx] = time.time() - tic
+
+                tic = time.time()
+                self.store_results(idx, 1,
+                                   cphi_R, sampleinfo_R,
+                                   cphi_I, sampleinfo_I,
+                                   cphi_S, sampleinfo_S, res,
+                                   logspace_phis=True)
+                res['kern_timing']['store'][idx] = time.time() - tic
 
             if compute_grad:
-                if self.using_precomp_slicing:
-                    lcl_G[slice_inds] += g
-                else:
-                    lcl_G += slice_ops.T.dot(g.reshape((-1,))).reshape(lcl_G.shape)
-            res['kern_timing']['proc'][idx] = time.time() - tic
+                self.G_lock.acquire()
+                self.G += lcl_G
+                self.G_lock.release()
 
-            tic = time.time()
-            self.store_results(idx, 1,
-                               cphi_R, sampleinfo_R,
-                               cphi_I, sampleinfo_I,
-                               cphi_S, sampleinfo_S, res,
-                               logspace_phis=True)
-            res['kern_timing']['store'][idx] = time.time() - tic
+            self.sigma_lock.acquire()
+            res['sigma2_est'][self.truncmask] += lcl_sigma2_est / self.minibatch['N_M']
+            res['correlation'][self.truncmask] += lcl_correlation / self.minibatch['N_M']
+            res['power'][self.truncmask] += lcl_power / self.minibatch['N_M']
+            self.sigma_lock.release()
 
-        if compute_grad:
-            self.G_lock.acquire()
-            self.G += lcl_G
-            self.G_lock.release()
-
-        self.sigma_lock.acquire()
-        res['sigma2_est'][self.truncmask] += lcl_sigma2_est / self.minibatch['N_M']
-        res['correlation'][self.truncmask] += lcl_correlation / self.minibatch['N_M']
-        res['power'][self.truncmask] += lcl_power / self.minibatch['N_M']
-        self.sigma_lock.release()
+            self.q.task_done()
 
     def eval(self, fM, compute_gradient=True, M=None):
         tic = time.time()
@@ -183,13 +191,13 @@ class UnknownRSThreadedCPUKernel(UnknownRSKernel):
         outputs['like_timing']['slice'] = time.time() - tic
 
         tic = time.time()
-        numJobs = min(N_M, 1 * self.numthreads)
+        numJobs = min(N_M, 3 * self.numthreads)
         # numJobs = int(self.numthreads + self.numthreads/2)
         imsPerJob = int(n.ceil(float(N_M) / numJobs))
         for jobId in xrange(numJobs):
             idxs = range(imsPerJob * jobId,
                          min(imsPerJob * (jobId + 1), N_M))
-            self.worker(idxs, fM, outputs, compute_gradient)
+            self.q.put((idxs, fM, outputs, compute_gradient))
         outputs['like_timing']['queue'] = time.time() - tic
 
         tic = time.time()
