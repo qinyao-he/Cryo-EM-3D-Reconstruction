@@ -10,5 +10,6 @@ from mixexpgauss import MixExpGaussPrior
 from centered import CenteredPenalty
 from likelihood import UnknownRSLikelihood
 
+
 def eval_objective(estr):
     return eval(estr)

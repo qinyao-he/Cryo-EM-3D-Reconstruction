@@ -30,13 +30,13 @@ class SGDMomentumStep(BaseStep):
         mu = params['sgd_momentum']
         alpha = params['sgd_avggrad_alpha']
 
-        curr_g = params['sigma']**2 * g
+        curr_g = params['sigma'] ** 2 * g
         if alpha > 0:
             if self.g_hat is None:
-                self.g_hat = (1-alpha) * curr_g
+                self.g_hat = (1 - alpha) * curr_g
             else:
                 self.g_hat *= alpha
-                self.g_hat += (1-alpha) * curr_g
+                self.g_hat += (1 - alpha) * curr_g
             curr_g = self.g_hat
 
         if self.adaptL:
@@ -50,13 +50,13 @@ class SGDMomentumStep(BaseStep):
                 doLS = True
                 max_ls_its = None
             else:
-                doLS = params.get('sgd_linesearch',True)
+                doLS = params.get('sgd_linesearch', True)
                 max_ls_its = params.get('sgd_linesearch_maxits', 3)
 
             if doLS:
                 self.L = find_L(x, f, g, evalobj, L0, max_ls_its)
 
-            eps = params['sgd_learnrate']/self.L
+            eps = params['sgd_learnrate'] / self.L
         else:
             eps = params['sgd_learnrate']
 

@@ -2,44 +2,44 @@ from objective import Objective
 
 import density
 
+
 class SumObjectives(Objective):
-    def __init__(self,fspace,objs,ws=None):
-        Objective.__init__(self,fspace)
+    def __init__(self, fspace, objs, ws=None):
+        Objective.__init__(self, fspace)
         self.objs = objs
         if ws == None:
-            self.ws = [None]*len(objs)
+            self.ws = [None] * len(objs)
         else:
             self.ws = ws
 
-    def setup(self,params,diagout,statout,ostream):
-        Objective.setup(self,params,diagout,statout,ostream)
-        for obj in self.objs: obj.setup(params,diagout,statout,ostream)
+    def setup(self, params, diagout, statout, ostream):
+        Objective.setup(self, params, diagout, statout, ostream)
+        for obj in self.objs: obj.setup(params, diagout, statout, ostream)
 
-    def set_dataset(self,cryodata):
-        Objective.set_dataset(self,cryodata)
+    def set_dataset(self, cryodata):
+        Objective.set_dataset(self, cryodata)
         for obj in self.objs: obj.set_dataset(cryodata)
-        
-    def set_params(self,cparams):
+
+    def set_params(self, cparams):
         for obj in self.objs: obj.set_params(cparams)
 
-    def set_data(self,cparams,minibatch):
-        Objective.set_data(self,cparams,minibatch)
-        for obj in self.objs: obj.set_data(cparams,minibatch)
+    def set_data(self, cparams, minibatch):
+        Objective.set_data(self, cparams, minibatch)
+        for obj in self.objs: obj.set_data(cparams, minibatch)
 
-    def get_preconditioner(self,precond_type):
+    def get_preconditioner(self, precond_type):
         precond = 0
-        for (w,obj) in zip(self.ws,self.objs):
+        for (w, obj) in zip(self.ws, self.objs):
             if w is None:
                 precond = precond + obj.get_preconditioner(precond_type)
             else:
-                precond = precond + w*obj.get_preconditioner(precond_type)
+                precond = precond + w * obj.get_preconditioner(precond_type)
         return precond
-        
-        
+
     def learn_params(self, params, cparams, M=None, fM=None):
         anyfspace = any([obj.fspace for obj in self.objs])
         anyrspace = any([not obj.fspace for obj in self.objs])
-            
+
         N = None
         if fM is None and anyfspace:
             assert M is not None, 'M or fM must be set!'
@@ -59,9 +59,9 @@ class SumObjectives(Objective):
         assert N is not None
 
         for obj in self.objs:
-            obj.learn_params(params,cparams,M=M,fM=fM)
+            obj.learn_params(params, cparams, M=M, fM=fM)
 
-    def eval(self, M=None, fM=None, compute_gradient=True, all_grads=False,**kwargs):
+    def eval(self, M=None, fM=None, compute_gradient=True, all_grads=False, **kwargs):
         anyfspace = any([obj.fspace for obj in self.objs])
         anyrspace = any([not obj.fspace for obj in self.objs])
 
@@ -95,10 +95,10 @@ class SumObjectives(Objective):
                 if self.fspace or anyfspace:
                     dlogPdfM = density.zeros_like(fM)
         outputs = {}
-        for w,obj in zip(self.ws,self.objs):
+        for w, obj in zip(self.ws, self.objs):
             if compute_gradient:
-                clogP, cdlogP, coutputs = obj.eval(M = M, fM = fM, 
-                                                   compute_gradient = compute_gradient,
+                clogP, cdlogP, coutputs = obj.eval(M=M, fM=fM,
+                                                   compute_gradient=compute_gradient,
                                                    **kwargs)
                 if w is not None and w != 1:
                     clogP *= w
@@ -119,8 +119,8 @@ class SumObjectives(Objective):
                         dlogPdM += cdlogP
 
             else:
-                clogP, coutputs = obj.eval(M = M, fM = fM,
-                                           compute_gradient = compute_gradient,
+                clogP, coutputs = obj.eval(M=M, fM=fM,
+                                           compute_gradient=compute_gradient,
                                            **kwargs)
                 if w is not None and w != 1:
                     clogP *= w
@@ -138,12 +138,12 @@ class SumObjectives(Objective):
                 dlogP = dlogPdM
                 if anyfspace:
                     dlogP += density.fspace_to_real(dlogPdfM)
-        
+
         outputs['all_logPs'] = logPs
         if compute_gradient and all_grads:
             outputs['all_dlogPs'] = dlogPs
 
         if compute_gradient:
-            return logP, dlogP, outputs 
+            return logP, dlogP, outputs
         else:
-            return logP, outputs 
+            return logP, outputs
