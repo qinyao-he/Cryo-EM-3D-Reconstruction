@@ -113,7 +113,7 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
     assert ctf.shape[1] == N_T
     assert d.shape[1] == N_T
 
-    workspace = update_workspace(workspace, N_R, N_I, N_S, N_T)
+    # workspace = update_workspace(workspace, N_R, N_I, N_S, N_T)
 
     g_I = workspace['g_I']
     g_S = workspace['g_S']
@@ -164,7 +164,6 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
         assert g.shape[1] == N_T
 
     for r in xrange(N_R):
-        # print(r)
         for s in xrange(N_S):
             # Compute the error at each frequency
             cproj = ctf * slices[r, :][np.newaxis, :]
@@ -189,31 +188,6 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
             # Compute the gradient
             if computeGrad:
                 g_I *= ctf
-
-            # for i in xrange(N_I):
-            #     # Compute the error at each frequency
-            #     cproj = ctf[i, :] * slices[r, :]
-            #     cim = S[s, :] * d[i, :]
-            #     correlation_I[i, :] = np.real(cproj) * np.real(cim) + np.imag(cproj) * np.imag(cim)
-            #     power_I[i, :] = np.real(cproj) ** 2 + np.imag(cproj) ** 2
-            #     if use_envelope:
-            #         g_I[i, :] = envelope * cproj - cim
-            #     else:
-            #         g_I[i, :] = cproj - cim
-            #
-            #     # Compute the log likelihood
-            #     if use_whitenoise:
-            #         sigma2_I[i, :] = np.real(g_I[i, :]) ** 2 + np.imag(g_I[i, :]) ** 2
-            #         tmp = np.sum(sigma2_I[i, :])
-            #     else:
-            #         sigma2_I[i, :] = np.real(g_I[i, :]) ** 2 + np.imag(g_I[i, :]) ** 2
-            #         tmp = np.sum(sigma2_I[i, :] / sigma2_coloured)
-            #
-            #     e_I[i] = div_in * tmp + logW_I[i]
-            #
-            #     # Compute the gradient
-            #     if computeGrad:
-            #         g_I[i, :] = ctf[i, :] * g_I[i, :]
 
             etmp = my_logsumexp(e_I)
             e_S[s] = etmp + logW_S[s]
