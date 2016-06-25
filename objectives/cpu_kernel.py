@@ -119,7 +119,7 @@ class UnknownRSThreadedCPUKernel(UnknownRSKernel):
                 tic = time.time()
                 if len(W_I_sampled) == 1:
                     like[idx], (cphi_S, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
-                        objective_gpu_kernels.doimage_RS(slices_sampled,
+                        objective_kernels.doimage_RS(slices_sampled,
                                                      S_sampled, envelope,
                                                      rotc_sampled.reshape((-1,)), rotd_sampled.reshape((-1,)),
                                                      log_W_S, log_W_R,
