@@ -3,30 +3,12 @@ import numpy as np
 import theano
 
 
-# def my_logsumexp(a):
-#     a_max = np.max(a)
-#     a_sum = np.sum(np.exp(a - a_max))
-#     return a_max + math.log(a_sum)
-#
-#
-# def my_logaddexp(a, b):
-#     if a == b:
-#         return a + 0.69314718055994529  # This is the numerical value of ln(2)
-#     else:
-#         tmp = a - b
-#
-#         if tmp > 0:
-#             return a + math.log1p(math.exp(-tmp))
-#         elif tmp <= 0:
-#             return b + math.log1p(math.exp(tmp))
-#         else:
-#             return tmp
-
-
 def my_logsumexp(a):
-    a_max = np.max(a)
-    a_sum = np.sum(np.exp(a - a_max))
-    return a_max + math.log(a_sum)
+    shape = list(a.shape)
+    shape[len(shape)-1] = 1
+    a_max = np.max(a, axis=-1)
+    a_sum = np.sum(np.exp(a - a_max.reshape(tuple(shape))), axis=-1)
+    return a_max + np.log(a_sum)
 
 
 def my_logaddexp(a, b):
@@ -115,32 +97,32 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
 
     # workspace = update_workspace(workspace, N_R, N_I, N_S, N_T)
 
-    g_I = workspace['g_I']
-    g_S = workspace['g_S']
+    g_I = np.empty((N_I, N_T), dtype=np.complex64)
+    g_S = np.empty((N_S, N_T), dtype=np.complex64)
 
-    e_R = workspace['e_R']
-    sigma2_R = workspace['sigma2_R']
-    correlation_R = workspace['correlation_R']
-    power_R = workspace['power_R']
-    avgphi_R = workspace['avgphi_R']
+    e_R = np.empty((N_R,), dtype=np.float64)
+    sigma2_R = np.empty((N_R, N_T), dtype=np.float64)
+    correlation_R = np.empty((N_R, N_T), dtype=np.float64)
+    power_R = np.empty((N_R, N_T), dtype=np.float64)
+    avgphi_R = np.empty((N_R,), dtype=np.float64)
 
-    e_I = workspace['e_I']
-    sigma2_I = workspace['sigma2_I']
-    correlation_I = workspace['correlation_I']
-    power_I = workspace['power_I']
-    avgphi_I = workspace['avgphi_I']
+    e_I = np.empty((N_I,), dtype=np.float64)
+    sigma2_I = np.empty((N_I, N_T), dtype=np.float64)
+    correlation_I = np.empty((N_I, N_T), dtype=np.float64)
+    power_I = np.empty((N_I, N_T), dtype=np.float64)
+    avgphi_I = np.empty((N_I,), dtype=np.float64)
 
-    e_S = workspace['e_S']
-    sigma2_S = workspace['sigma2_S']
-    correlation_S = workspace['correlation_S']
-    power_S = workspace['power_S']
-    avgphi_S = workspace['avgphi_S']
+    e_S = np.empty((N_S,), dtype=np.float64)
+    sigma2_S = np.empty((N_S, N_T), dtype=np.float64)
+    correlation_S = np.empty((N_S, N_T), dtype=np.float64)
+    power_S = np.empty((N_S, N_T), dtype=np.float64)
+    avgphi_S = np.empty((N_S,), dtype=np.float64)
 
-    sigma2_est = workspace['sigma2_est']
-    correlation = workspace['correlation']
-    power = workspace['power']
+    sigma2_est = np.zeros((N_T,), dtype=np.float64)
+    correlation = np.zeros((N_T,), dtype=np.float64)
+    power = np.zeros((N_T,), dtype=np.float64)
 
-    nttmp = workspace['nttmp']
+    nttmp = np.empty((N_T,), dtype=np.float64)
 
     use_envelope = envelope is not None
     use_whitenoise = not isinstance(sigma2, np.ndarray)
