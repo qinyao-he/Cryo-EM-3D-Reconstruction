@@ -91,16 +91,11 @@ def build_func():
     div_in = T.dscalar()
     sigma2_coloured = T.dvector()
 
-    N_S = S.shape[0]
-    N_I = ctf.shape[0]
-    N_R = slices.shape[0]
-    N_T = slices.shape[1]
-
     cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
     cim = S[:, np.newaxis, :] * d  # s * i * t
     correlation_I = T.real(cproj[:, np.newaxis, :, :]) * T.real(cim) \
         + T.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
-    power_I = T.real(cproj[:, np.newaxis, :, :]) ** 2 + T.imag(cproj[:, np.newaxis, :, :]) ** 2  # r * s * i * t
+    power_I = T.real(cproj) ** 2 + T.imag(cproj) ** 2  # r * i * t
 
     g_I = envelope * cproj[:, np.newaxis, :, :] - cim  # r * s * i * t
 
@@ -120,7 +115,7 @@ def build_func():
     I_tmp = tmp[:, :, np.newaxis] + e_I
 
     correlation_S = T.sum(phitmp[:, :, :, np.newaxis] * correlation_I, axis=2)  # r * s * t
-    power_S = T.sum(phitmp[:, :, :, np.newaxis] * power_I, axis=2)  # r * s * t
+    power_S = T.sum(phitmp[:, :, :, np.newaxis] * power_I[:, np.newaxis, :, :], axis=2)  # r * s * t
     sigma2_S = T.sum(phitmp[:, :, :, np.newaxis] * sigma2_I, axis=2)  # r * s * t
     g_S = T.sum(phitmp[:, :, :, np.newaxis] * g_I, axis=2)  # r * s * t
 
