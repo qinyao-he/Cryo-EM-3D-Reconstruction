@@ -88,7 +88,7 @@ def build_func():
     div_in = T.dscalar()
     sigma2_coloured = T.dvector()
     correlation_I = T.dtensor4()
-    power_I = T.dtensor4()
+    power_I = T.dtensor3()
     sigma2_I = T.dtensor4()
     g_I = T.ctensor4()
 
@@ -104,7 +104,7 @@ def build_func():
     I_tmp = tmp[:, :, np.newaxis] + e_I
 
     correlation_S = T.sum(phitmp[:, :, :, np.newaxis] * correlation_I, axis=2)  # r * s * t
-    power_S = T.sum(phitmp[:, :, :, np.newaxis] * power_I, axis=2)  # r * s * t
+    power_S = T.sum(phitmp[:, :, :, np.newaxis] * power_I[:, np.newaxis, :, :], axis=2)  # r * s * t
     sigma2_S = T.sum(phitmp[:, :, :, np.newaxis] * sigma2_I, axis=2)  # r * s * t
     g_S = T.sum(phitmp[:, :, :, np.newaxis] * g_I, axis=2)  # r * s * t
 
@@ -210,7 +210,7 @@ def doimage_RIS(slices,  # Slices of 3D volume (N_R x N_T)
     cim = S[:, np.newaxis, :] * d  # s * i * t
     correlation_I = np.real(cproj[:, np.newaxis, :, :]) * np.real(cim) \
                     + np.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
-    power_I = np.real(cproj[:, np.newaxis, :, :]) ** 2 + np.imag(cproj[:, np.newaxis, :, :]) ** 2  # r * s * i * t
+    power_I = np.real(cproj) ** 2 + np.imag(cproj) ** 2  # r * i * t
     g_I = cproj[:, np.newaxis, :, :] * envelope - cim  # r * s * i * t
     g_I *= ctf  # r * s * i * t
     sigma2_I = np.real(g_I) ** 2 + np.imag(g_I) ** 2  # r * s * i * t
