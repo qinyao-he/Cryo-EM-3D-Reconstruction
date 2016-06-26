@@ -31,36 +31,6 @@ def my_logaddexp_theano(a, b):
 def update_workspace(workspace, N_R, N_I, N_S, N_T):
     if workspace is None:
         workspace = {'N_R': 0, 'N_I': 0, 'N_S': 0, 'N_T': 0}
-
-    # if N_R is not None and workspace['N_R'] < N_R or workspace['N_T'] != N_T:
-    #     workspace['sigma2_R'] = np.empty((N_R, N_T), dtype=np.float64)
-    #     workspace['correlation_R'] = np.empty((N_R, N_T), dtype=np.float64)
-    #     workspace['power_R'] = np.empty((N_R, N_T), dtype=np.float64)
-    #     if workspace['N_R'] < N_R:
-    #         workspace['e_R'] = np.empty((N_R,), dtype=np.float64)
-    #         workspace['avgphi_R'] = np.empty((N_R,), dtype=np.float64)
-    #     workspace['N_R'] = N_R
-    #
-    # if N_I is not None and (workspace['N_I'] < N_I or workspace['N_T'] != N_T):
-    #     workspace['sigma2_I'] = np.empty((N_I, N_T), dtype=np.float64)
-    #     workspace['correlation_I'] = np.empty((N_I, N_T), dtype=np.float64)
-    #     workspace['power_I'] = np.empty((N_I, N_T), dtype=np.float64)
-    #     workspace['g_I'] = np.empty((N_I, N_T), dtype=np.complex64)
-    #     if workspace['N_I'] < N_I:
-    #         workspace['e_I'] = np.empty((N_I,), dtype=np.float64)
-    #         workspace['avgphi_I'] = np.empty((N_I,), dtype=np.float64)
-    #     workspace['N_I'] = N_I
-    #
-    # if N_S is not None and (workspace['N_S'] < N_S or workspace['N_T'] != N_T):
-    #     workspace['sigma2_S'] = np.empty((N_S, N_T), dtype=np.float64)
-    #     workspace['correlation_S'] = np.empty((N_S, N_T), dtype=np.float64)
-    #     workspace['power_S'] = np.empty((N_S, N_T), dtype=np.float64)
-    #     workspace['g_S'] = np.empty((N_S, N_T), dtype=np.complex64)
-    #     if workspace['N_S'] < N_S:
-    #         workspace['e_S'] = np.empty((N_S,), dtype=np.float64)
-    #         workspace['avgphi_S'] = np.empty((N_S,), dtype=np.float64)
-    #     workspace['N_S'] = N_S
-
     if workspace['N_T'] != N_T:
         workspace['sigma2_est'] = np.zeros((N_T,), dtype=np.float64)
         workspace['correlation'] = np.zeros((N_T,), dtype=np.float64)
@@ -93,7 +63,6 @@ def build_func():
     g_I = T.ctensor4()
 
     tmp = T.sum(sigma2_I / sigma2_coloured, axis=-1)  # r * s * i
-
     e_I = tmp * div_in + logW_I  # r * s * i
 
     etmp = my_logsumexp_theano(e_I)  # r * s
