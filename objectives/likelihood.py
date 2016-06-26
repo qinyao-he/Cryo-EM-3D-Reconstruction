@@ -30,6 +30,9 @@ class UnknownRSLikelihood(Objective):
         if params['kernel'] == 'multicpu':
             from cpu_kernel import UnknownRSThreadedCPUKernel
             self.kernel = UnknownRSThreadedCPUKernel()
+        elif params['kernel'] == 'numpy':
+            from numpy_kernel import UnknownRSNumpyKernel
+            self.kernel = UnknownRSNumpyKernel()
         elif params['kernel'] == 'gpu':
             from gpu_kernel import UnknownRSThreadedGPUKernel
             self.kernel = UnknownRSThreadedGPUKernel()

@@ -94,18 +94,14 @@ def build_func():
     cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
     cim = S[:, np.newaxis, :] * d  # s * i * t
     correlation_I = T.real(cproj[:, np.newaxis, :, :]) * T.real(cim) \
-        + T.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
+                    + T.imag(cproj[:, np.newaxis, :, :]) * T.imag(cim)  # r * s * i * t
     power_I = T.real(cproj) ** 2 + T.imag(cproj) ** 2  # r * i * t
-
     g_I = envelope * cproj[:, np.newaxis, :, :] - cim  # r * s * i * t
-
     sigma2_I = T.real(g_I) ** 2 + T.imag(g_I) ** 2  # r * s * i * t
+    g_I *= ctf  # r * s * i * t
 
     tmp = T.sum(sigma2_I / sigma2_coloured, axis=-1)  # r * s * i
-
     e_I = div_in * tmp + logW_I  # r * s * i
-
-    g_I *= ctf  # r * s * i * t
 
     etmp = my_logsumexp_theano(e_I)  # r * s
     e_S = etmp + logW_S  # r * s
@@ -123,7 +119,7 @@ def build_func():
     e_R = etmp + logW_R  # r
 
     tmp = logW_R  # r
-    phitmp = np.exp(e_S - etmp[:, np.newaxis])  # r * s
+    phitmp = T.exp(e_S - etmp[:, np.newaxis])  # r * s
     S_tmp = tmp[:, np.newaxis] + e_S
     correlation_R = T.sum(phitmp[:, :, np.newaxis] * correlation_S, axis=1)  # r * t
     power_R = T.sum(phitmp[:, :, np.newaxis] * power_S, axis=1)  # r * t

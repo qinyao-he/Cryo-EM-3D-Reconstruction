@@ -16,7 +16,7 @@ import objective_gpu_kernels
 import objective_numpy_kernels
 
 
-class UnknownRSThreadedGPUKernel(UnknownRSKernel):
+class UnknownRSNumpyKernel(UnknownRSKernel):
     def __init__(self):
         UnknownRSKernel.__init__(self)
 
@@ -193,7 +193,7 @@ class UnknownRSThreadedGPUKernel(UnknownRSKernel):
             self.worker(idxs, fM, outputs, compute_gradient)
         outputs['like_timing']['queue'] = time.time() - tic
 
-        tic = time.time()
+        tiqc = time.time()
         self.q.join()
         outputs['like_timing']['join'] = time.time() - tic
         outputs['kern_timing'] = dict([(k, n.sum(v) / self.numthreads) for k, v in outputs['kern_timing'].iteritems()])
