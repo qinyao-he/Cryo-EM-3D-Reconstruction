@@ -94,11 +94,7 @@ def build_func():
     cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
     cim = S[:, np.newaxis, :] * d  # s * i * t
     correlation_I = T.real(cproj[:, np.newaxis, :, :]) * T.real(cim) \
-<<<<<<< HEAD:objectives/objective_gpu_kernels.py
                     + T.imag(cproj[:, np.newaxis, :, :]) * T.imag(cim)  # r * s * i * t
-=======
-        + T.imag(cproj[:, np.newaxis, :, :]) * T.imag(cim)  # r * s * i * t
->>>>>>> tensorflow:objectives/objective_theano_kernels.py
     power_I = T.real(cproj) ** 2 + T.imag(cproj) ** 2  # r * i * t
     g_I = envelope * cproj[:, np.newaxis, :, :] - cim  # r * s * i * t
     sigma2_I = T.real(g_I) ** 2 + T.imag(g_I) ** 2  # r * s * i * t
