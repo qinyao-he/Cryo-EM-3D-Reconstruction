@@ -17,7 +17,7 @@ import objective_theano_kernels
 import objective_tensorflow_kernels
 
 
-class UnknownRSThreadedGPUKernel(UnknownRSKernel):
+class UnknownRSGPUKernel(UnknownRSKernel):
     def __init__(self):
         UnknownRSKernel.__init__(self)
 

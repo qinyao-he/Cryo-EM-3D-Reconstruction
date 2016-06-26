@@ -34,8 +34,8 @@ class UnknownRSLikelihood(Objective):
             from numpy_kernel import UnknownRSNumpyKernel
             self.kernel = UnknownRSNumpyKernel()
         elif params['kernel'] == 'gpu':
-            from gpu_kernel import UnknownRSThreadedGPUKernel
-            self.kernel = UnknownRSThreadedGPUKernel()
+            from gpu_kernel import UnknownRSGPUKernel
+            self.kernel = UnknownRSGPUKernel()
         else:
             assert False
         self.kernel.setup(params, diagout, statout, ostream)
