@@ -19,7 +19,7 @@ def my_logaddexp(a, b):
 
 def my_logsumexp_theano(a):
     a_max = T.max(a, axis=-1, keepdims=True)
-    a_sum = T.sum(np.exp(a - a_max), axis=-1)
+    a_sum = T.sum(T.exp(a - a_max), axis=-1)
     return T.max(a, axis=-1) + T.log(a_sum)
 
 
@@ -112,7 +112,7 @@ def build_func():
     e_R = etmp + logW_R  # r
 
     tmp = logW_R  # r
-    phitmp = np.exp(e_S - etmp[:, np.newaxis])  # r * s
+    phitmp = T.exp(e_S - etmp[:, np.newaxis])  # r * s
     S_tmp = tmp[:, np.newaxis] + e_S
     correlation_R = T.sum(phitmp[:, :, np.newaxis] * correlation_S, axis=1)  # r * t
     power_R = T.sum(phitmp[:, :, np.newaxis] * power_S, axis=1)  # r * t
