@@ -12,8 +12,9 @@ pyximport.install(setup_args={"include_dirs": n.get_include()}, reload_support=T
 import objective_kernels
 
 from objectives.likelihood import UnknownRSKernel
-import objective_gpu_kernels
 import objective_numpy_kernels
+import objective_theano_kernels
+import objective_tensorflow_kernels
 
 
 class UnknownRSThreadedGPUKernel(UnknownRSKernel):
@@ -120,7 +121,7 @@ class UnknownRSThreadedGPUKernel(UnknownRSKernel):
                 cphi_I = n.array([0.0])
             else:
                 like[idx], (cphi_S, cphi_I, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
-                    objective_numpy_kernels.doimage_RIS(slices_sampled,
+                    objective_theano_kernels.doimage_RIS(slices_sampled,
                                                       S_sampled, envelope,
                                                       rotc_sampled, rotd_sampled,
                                                       log_W_S, log_W_I, log_W_R,
