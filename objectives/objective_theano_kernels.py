@@ -19,7 +19,7 @@ def my_logaddexp(a, b):
 
 def my_logsumexp_theano(a):
     a_max = T.max(a, axis=-1, keepdims=True)
-    a_sum = T.sum(np.exp(a - a_max), axis=-1)
+    a_sum = T.sum(T.exp(a - a_max), axis=-1)
     return T.max(a, axis=-1) + T.log(a_sum)
 
 
@@ -94,7 +94,7 @@ def build_func():
     cproj = slices[:, np.newaxis, :] * ctf  # r * i * t
     cim = S[:, np.newaxis, :] * d  # s * i * t
     correlation_I = T.real(cproj[:, np.newaxis, :, :]) * T.real(cim) \
-        + T.imag(cproj[:, np.newaxis, :, :]) * np.imag(cim)  # r * s * i * t
+        + T.imag(cproj[:, np.newaxis, :, :]) * T.imag(cim)  # r * s * i * t
     power_I = T.real(cproj) ** 2 + T.imag(cproj) ** 2  # r * i * t
 
     g_I = envelope * cproj[:, np.newaxis, :, :] - cim  # r * s * i * t
