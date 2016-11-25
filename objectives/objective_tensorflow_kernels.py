@@ -93,13 +93,13 @@ def build_func():
     div_in_tensor = tf.placeholder(dtype=tf.float32, shape=[])
     sigma2_coloured_tensor = tf.placeholder(dtype=tf.float32, shape=[None])
 
-    cproj = tf.expand_dims(slices_tensor, 1) * tf.cast(ctf_tensor, dtype=tf.complex64)  # r * i * t
+    cproj = tf.expand_dims(slices_tensor, 1) * tf.complex(ctf_tensor, tf.zeros_like(ctf_tensor)) # r * i * t
     cim = tf.expand_dims(S_tensor, 1) * d_tensor  # s * i * t
     correlation_I = tf.real(tf.expand_dims(cproj, 1)) * tf.real(cim) \
                     + tf.imag(tf.expand_dims(cproj, 1)) * tf.imag(cim)  # r * s * i * t
     power_I = tf.real(cproj) ** 2 + tf.imag(cproj) ** 2  # r * i * t
 
-    g_I = tf.cast(envelope_tensor, dtype=tf.complex64) * tf.expand_dims(cproj, 1) - cim  # r * s * i * t
+    g_I =tf.complex(envelope_tensor, tf.zeros_like(envelope_tensor)) * tf.expand_dims(cproj, 1) - cim  # r * s * i * t
 
     sigma2_I = tf.real(g_I) ** 2 + tf.imag(g_I) ** 2  # r * s * i * t
 
@@ -107,7 +107,8 @@ def build_func():
 
     e_I = div_in_tensor * tmp + logW_I_tensor  # r * s * i
 
-    g_I *= tf.cast(ctf_tensor, dtype=tf.complex64)  # r * s * i * t
+    g_I *= tf.complex(ctf_tensor, tf.zeros_like(ctf_tensor))  # r * s * i * t
+
 
     etmp = my_logsumexp_tensorflow(e_I)  # r * s
     e_S = etmp + logW_S_tensor  # r * s
@@ -119,7 +120,8 @@ def build_func():
     correlation_S = tf.reduce_sum(tf.expand_dims(phitmp, 3) * correlation_I, reduction_indices=2)  # r * s * t
     power_S = tf.reduce_sum(tf.expand_dims(phitmp, 3) * tf.expand_dims(power_I, 1), reduction_indices=2)  # r * s * t
     sigma2_S = tf.reduce_sum(tf.expand_dims(phitmp, 3) * sigma2_I, reduction_indices=2)  # r * s * t
-    g_S = tf.reduce_sum(tf.cast(tf.expand_dims(phitmp, 3), dtype=tf.complex64) * g_I, reduction_indices=2)  # r * s * t
+    g_S = tf.reduce_sum(tf.complex(tf.expand_dims(phitmp, 3), tf.zeros_like(tf.expand_dims(phitmp, 3)))
+        * g_I, reduction_indices=2)  # r * s * t
 
     etmp = my_logsumexp_tensorflow(e_S)  # r
     e_R = etmp + logW_R_tensor  # r
@@ -131,7 +133,8 @@ def build_func():
     power_R = tf.reduce_sum(tf.expand_dims(phitmp, 2) * power_S, reduction_indices=1)  # r * t
     sigma2_R = tf.reduce_sum(tf.expand_dims(phitmp, 2) * sigma2_S, reduction_indices=1)  # r * t
 
-    g = tf.reduce_sum(tf.cast(tf.expand_dims(phitmp, 2), dtype=tf.complex64) * g_S, reduction_indices=1)  # r * t
+    g = tf.reduce_sum(tf.complex(tf.expand_dims(phitmp, 2), tf.zeros_like(tf.expand_dims(phitmp, 2)))
+        * g_S, reduction_indices=1)  # r * t
 
     tmp = -2.0 * div_in_tensor
     nttmp = tmp * envelope_tensor / sigma2_coloured_tensor

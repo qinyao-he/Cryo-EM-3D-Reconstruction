@@ -121,7 +121,7 @@ class UnknownRSGPUKernel(UnknownRSKernel):
                 cphi_I = n.array([0.0])
             else:
                 like[idx], (cphi_S, cphi_I, cphi_R), csigma2_est, ccorrelation, cpower, workspace = \
-                    objective_theano_kernels.doimage_RIS(slices_sampled,
+                    objective_tensorflow_kernels.doimage_RIS(slices_sampled,
                                                       S_sampled, envelope,
                                                       rotc_sampled, rotd_sampled,
                                                       log_W_S, log_W_I, log_W_R,

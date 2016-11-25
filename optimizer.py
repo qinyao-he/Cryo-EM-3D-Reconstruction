@@ -302,7 +302,7 @@ class CryoOptimizer(BackgroundWorker):
             self.io_queue.task_done()
 
     def __init__(self, expbase, cmdparams=None):
-        """cryodata is a CryoData instance. 
+        """cryodata is a CryoData instance.
         expbase is a path to the base of folder where this experiment's files
         will be stored.  The folder above expbase will also be searched
         for .params files. These will be loaded first."""
@@ -343,7 +343,7 @@ class CryoOptimizer(BackgroundWorker):
         psize = self.params['resolution']
         if not isinstance(self.imgpath, list):
             # imgstk = MRCImageStack(self.imgpath,psize)
-            imgstk = MATImageStack(self.imgpath, psize)
+            imgstk = MRCImageStack(self.imgpath, psize)
         else:
             imgstk = CombinedImageStack([MRCImageStack(cimgpath, psize) for cimgpath in self.imgpath])
 
@@ -660,7 +660,7 @@ class CryoOptimizer(BackgroundWorker):
         else:
             testLogP, res_test = None, None
 
-        # setup the wrapper for the objective function 
+        # setup the wrapper for the objective function
         tic_objsetup = time.time()
         self.obj.set_data(self.cparams, trainbatch)
         self.obj_wrapper.set_objective(self.obj)
